@@ -62,9 +62,10 @@ const CallSupportModal = ({ onClose }) => (
   </div>
 )
 
-const TopNavigation = ({ userName = 'John Doe' }) => {
+const TopNavigation = ({ userName = 'John Doe', onLogout = () => {} }) => {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showCallModal, setShowCallModal] = useState(false)
+  const assetBase = import.meta.env.BASE_URL
 
   return (
     <>
@@ -73,10 +74,10 @@ const TopNavigation = ({ userName = 'John Doe' }) => {
         <div className="nav-left">
           <div className="nav-brand">
             <div className="htc-logo">
-              <img src="/htc-logo.png" alt="HTC logo" />
+              <img src={`${assetBase}htc-logo.png`} alt="HTC logo" />
             </div>
             <div className="neo-logo">
-              <img src="/neo-logo.svg" alt="Neo - New Employee Onboarding" />
+              <img src={`${assetBase}neo-logo.svg`} alt="Neo - New Employee Onboarding" />
             </div>
           </div>
         </div>
@@ -128,7 +129,14 @@ const TopNavigation = ({ userName = 'John Doe' }) => {
                   Help
                 </button>
                 <div className="dropdown-divider" />
-                <button type="button" className="dropdown-item logout">
+                <button
+                  type="button"
+                  className="dropdown-item logout"
+                  onClick={() => {
+                    setShowUserMenu(false)
+                    onLogout()
+                  }}
+                >
                   Logout
                 </button>
               </div>

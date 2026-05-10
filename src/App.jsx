@@ -94,7 +94,7 @@ const policyFaqs = [
   },
 ]
 
-function App() {
+function App({ userName = 'Thulasi Chellamuthu', onLogout = () => {} }) {
   const [alertDismissed, setAlertDismissed] = useState(false)
   const [activeUploadDocument, setActiveUploadDocument] = useState(null)
   const [verificationEvent, setVerificationEvent] = useState(null)
@@ -105,8 +105,6 @@ function App() {
     [PROOF_OF_ADDRESS_DOC_NAME]: { status: 'pending', label: 'Upload', fileName: null },
     [CERTIFICATION_DOC_NAME]: { status: 'pending', label: 'Upload', fileName: null },
   })
-  const userName = 'Thulasi Chellamuthu'
-
   const handleReadyForDocument = (target) => {
     const panel = document.getElementById('document-validation-panel')
     panel?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -270,7 +268,7 @@ function App() {
 
   return (
     <div className="app-container">
-      <TopNavigation userName={userName} />
+      <TopNavigation userName={userName} onLogout={onLogout} />
 
       {!alertDismissed && missingDocs.length > 0 && (
         <div className="alert-banner">
