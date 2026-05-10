@@ -103,17 +103,36 @@ const RootApp = () => {
     setHashRoute(HOME_ROUTE)
   }
 
+  const handleLogout = () => {
+    try {
+      window.sessionStorage.removeItem(AUTH_STORAGE_KEY)
+    } catch {
+      // Ignore storage failures and continue logout.
+    }
+    setAuthUser(null)
+    setHashRoute(LOGIN_ROUTE)
+  }
+
   if (authUser && route === HOME_ROUTE) {
-    return <App userName={authUser} />
+    return <App userName={authUser} onLogout={handleLogout} />
   }
 
   return (
     <div className="auth-shell">
       <div className="auth-card">
-        <h1>Welcome to Neo Onboarding</h1>
-        <p>
-          Please validate your details to access your onboarding workspace.
-        </p>
+        <div className="auth-header">
+          <div className="auth-brand-row">
+            <span className="auth-kicker">Secure Access</span>
+            <span className="auth-status-dot" aria-hidden="true" />
+          </div>
+          <h1 className="auth-title">Welcome to Neo - HR Onboarding Buddy</h1>
+          <div className="auth-title-glow" aria-hidden="true" />
+        </div>
+        <div className="auth-trust-row">
+          <span>Employee verification</span>
+          <span>Instant validation</span>
+          <span>Secure session</span>
+        </div>
         <form className="auth-form" onSubmit={handleLogin} noValidate>
           <label>
             Full Name

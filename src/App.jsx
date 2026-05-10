@@ -94,7 +94,7 @@ const policyFaqs = [
   },
 ]
 
-function App({ userName = 'Thulasi Chellamuthu' }) {
+function App({ userName = 'Thulasi Chellamuthu', onLogout = () => {} }) {
   const [alertDismissed, setAlertDismissed] = useState(false)
   const [activeUploadDocument, setActiveUploadDocument] = useState(null)
   const [verificationEvent, setVerificationEvent] = useState(null)
@@ -268,7 +268,7 @@ function App({ userName = 'Thulasi Chellamuthu' }) {
 
   return (
     <div className="app-container">
-      <TopNavigation userName={userName} />
+      <TopNavigation userName={userName} onLogout={onLogout} />
 
       {!alertDismissed && missingDocs.length > 0 && (
         <div className="alert-banner">
