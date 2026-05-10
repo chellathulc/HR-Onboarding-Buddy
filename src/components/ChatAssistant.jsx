@@ -39,20 +39,63 @@ const speak = (text) => {
   window.speechSynthesis.speak(utterance)
 }
 
-const ChatAssistant = () => {
-  const [messages, setMessages] = useState([
+const READY_INTENT_PATTERN = /\b(yes|ready|i am ready|i'm ready|iam ready)\b/i
+const ALLOWED_UPLOAD_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
+const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024
+const ID_FILE_NAME_PATTERN = /((^|[\s._-])dl([\s._-]|$)|driving[\s._-]*license|drivinglicense|green[\s._-]*card|greencard|ration[\s._-]*card|rationcard|id[\s._-]*proof|government[\s._-]*id)/i
+const PASSPORT_FILE_NAME_PATTERN = /(passport|travel[\s._-]*doc|pp)/i
+const ADDRESS_FILE_NAME_PATTERN = /(utility[\s._-]*bill|bank[\s._-]*(statement|stmt)|bankstatement|statement|stmt)/i
+const CERTIFICATION_FILE_NAME_PATTERN = /(certificate|cert|degree|college|university|marksheet|transcript|provisional)/i
+const ASSISTANT_NAME = 'Neo'
+const CHAT_HISTORY_STORAGE_KEY = 'neo-chat-history-v1'
+
+const ChatAssistant = ({
+  userName,
+  verificationEvent,
+  documentRemovalEvent,
+  onReadyForDocument,
+  onUploadDocument,
+  onScrollToDocuments,
+}) => {
+  const initialMessage = `Hi ${userName}! I'm ${ASSISTANT_NAME}, your onboarding chat assistant buddy. I can help with your onboarding documents uploads, policies, payroll, benefits, and more. Are you ready with the needed documents?`
+  const initialMessages = [
     {
       id: 1,
-      sender: 'Buddy',
-      content: "Hi! I'm your onboarding buddy. I can help with documents, policies, payroll, benefits, and more. What do you need?",
+      sender: ASSISTANT_NAME,
+      content: initialMessage,
     },
-  ])
+  ]
+  const [messages, setMessages] = useState(() => {
+    try {
+      const cached = window.localStorage.getItem(CHAT_HISTORY_STORAGE_KEY)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      }
+    } catch {
+      // Fallback to fresh greeting when cache is unavailable/corrupt.
+    }
+    return initialMessages
+  })
   const [query, setQuery] = useState('')
   const [voiceEnabled, setVoiceEnabled] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
   const [isListening, setIsListening] = useState(false)
+  const [currentTarget, setCurrentTarget] = useState('government')
+  const [awaitingReady, setAwaitingReady] = useState(true)
+  const [uploadEnabled, setUploadEnabled] = useState(false)
+  const [awaitingVerification, setAwaitingVerification] = useState(false)
+  const [lastVerificationId, setLastVerificationId] = useState(null)
+  const [lastRemovalId, setLastRemovalId] = useState(null)
   const chatWindowRef = useRef(null)
   const recognitionRef = useRef(null)
+  const uploadInputRef = useRef(null)
+  const getTargetLabel = (target) => {
+    if (target === 'passport') return 'Passport'
+    if (target === 'address') return 'Proof of address'
+    if (target === 'certification') return 'Certification files'
+    return 'Government ID proof'
+  }
 
   useEffect(() => {
     if (chatWindowRef.current) {
@@ -60,8 +103,66 @@ const ChatAssistant = () => {
     }
   }, [messages, isTyping])
 
+  useEffect(() => {
+    window.localStorage.setItem(CHAT_HISTORY_STORAGE_KEY, JSON.stringify(messages))
+  }, [messages])
+
+  useEffect(() => {
+    if (!verificationEvent || verificationEvent.id === lastVerificationId) return
+    setLastVerificationId(verificationEvent.id)
+    setAwaitingVerification(false)
+
+    const parsedInfo = Object.entries(verificationEvent.fields)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join('\n')
+
+    const nextTarget = verificationEvent.nextTarget ?? null
+    const nextMessage = nextTarget
+      ? `The following information is successfully parsed and validated:\n${parsedInfo}\n\nAre you ready to upload your ${getTargetLabel(nextTarget)}?`
+      : `The following information is successfully parsed and validated:\n${parsedInfo}\n\nAll required document checks in this flow are complete.`
+
+    setMessages((prev) => [
+      ...prev,
+      { id: Date.now(), sender: ASSISTANT_NAME, content: nextMessage },
+    ])
+
+    if (nextTarget) {
+      setCurrentTarget(nextTarget)
+      setAwaitingReady(true)
+      setUploadEnabled(false)
+    } else {
+      setAwaitingReady(false)
+      setUploadEnabled(false)
+    }
+  }, [verificationEvent, lastVerificationId])
+
+  useEffect(() => {
+    if (!documentRemovalEvent || documentRemovalEvent.id === lastRemovalId) return
+    setLastRemovalId(documentRemovalEvent.id)
+
+    const target = documentRemovalEvent.target
+    const targetLabel = getTargetLabel(target)
+
+    setCurrentTarget(target)
+    setAwaitingReady(true)
+    setUploadEnabled(false)
+    setAwaitingVerification(false)
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        sender: ASSISTANT_NAME,
+        content: `${targetLabel} was removed. Please upload it again to continue verification. Reply with "yes" or "ready" when you are ready.`,
+      },
+    ])
+    onScrollToDocuments()
+  }, [documentRemovalEvent, lastRemovalId, onScrollToDocuments])
+
   const handleSubmit = (event) => {
     event.preventDefault()
+    if (uploadEnabled || awaitingVerification) return
+
     const trimmed = query.trim()
     if (!trimmed) return
 
@@ -71,10 +172,22 @@ const ChatAssistant = () => {
     setIsTyping(true)
 
     window.setTimeout(() => {
-      const reply = getReply(trimmed)
+      let reply
+      const isReadyIntent = READY_INTENT_PATTERN.test(trimmed)
+      if (awaitingReady && isReadyIntent) {
+        const targetLabel = getTargetLabel(currentTarget)
+        reply = `Great! Upload button is now enabled. Please use Upload Documents to upload your ${targetLabel}.`
+        setUploadEnabled(true)
+        setAwaitingReady(false)
+        onReadyForDocument(currentTarget)
+        onScrollToDocuments()
+      } else {
+        reply = `${getReply(trimmed)}\n\nWhen you are ready, reply with "yes" or "ready" so I can enable ${getTargetLabel(currentTarget)} upload.`
+      }
+
       setMessages((prev) => [
         ...prev,
-        { id: Date.now() + 1, sender: 'Buddy', content: reply },
+        { id: Date.now() + 1, sender: ASSISTANT_NAME, content: reply },
       ])
       setIsTyping(false)
       if (voiceEnabled) speak(reply)
@@ -111,6 +224,87 @@ const ChatAssistant = () => {
     setIsListening(true)
   }
 
+  const handleUploadClick = () => {
+    uploadInputRef.current?.click()
+  }
+
+  const handleUploadChange = (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const loweredName = file.name.toLowerCase()
+    if (!ALLOWED_UPLOAD_TYPES.includes(file.type)) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          sender: ASSISTANT_NAME,
+          content: 'Please upload only PDF, JPG, or PNG for government-issued ID proof.',
+        },
+      ])
+      event.target.value = ''
+      return
+    }
+
+    if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          sender: ASSISTANT_NAME,
+          content: 'This file is too large. Please upload a file up to 5 MB.',
+        },
+      ])
+      event.target.value = ''
+      return
+    }
+
+    const targetPattern = currentTarget === 'passport'
+      ? PASSPORT_FILE_NAME_PATTERN
+      : currentTarget === 'address'
+        ? ADDRESS_FILE_NAME_PATTERN
+        : currentTarget === 'certification'
+          ? CERTIFICATION_FILE_NAME_PATTERN
+        : ID_FILE_NAME_PATTERN
+    if (!targetPattern.test(loweredName)) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          sender: ASSISTANT_NAME,
+          content: currentTarget === 'passport'
+            ? 'Please upload a passport file and include "passport" in the file name.'
+            : currentTarget === 'address'
+              ? 'Please upload a Utility Bill or Bank Statement and include that in the file name.'
+              : currentTarget === 'certification'
+                ? 'Please upload your college certificate file and include words like certificate, degree, marksheet, or transcript.'
+            : 'Please upload a government-issued ID file (Driving License, Green Card, or Ration Card). Include the ID type in the file name.',
+        },
+      ])
+      event.target.value = ''
+      return
+    }
+
+    onUploadDocument(currentTarget, file)
+    setUploadEnabled(false)
+    setAwaitingVerification(true)
+    setMessages((prev) => [
+      ...prev,
+      { id: Date.now(), sender: 'You', content: `Uploaded file: ${file.name}` },
+      {
+        id: Date.now() + 1,
+        sender: ASSISTANT_NAME,
+        content: `Thanks! "${file.name}" is sent for parsing. I will update you once verification is complete.`,
+      },
+    ])
+    event.target.value = ''
+  }
+
+  const handleClearHistory = () => {
+    setMessages(initialMessages)
+    window.localStorage.removeItem(CHAT_HISTORY_STORAGE_KEY)
+  }
+
   return (
     <div className="card chat-card">
       <div className="panel-header">
@@ -118,63 +312,85 @@ const ChatAssistant = () => {
           <h2>AI chat assistant</h2>
           <p>Ask anything about onboarding, policies, or documents.</p>
         </div>
-        <div className="chat-controls">
-          <button
-            type="button"
-            className={`voice-toggle ${voiceEnabled ? 'active' : ''}`}
-            onClick={toggleVoice}
-            title={voiceEnabled ? 'Disable voice replies' : 'Enable voice replies'}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-              <path d="M12 1C10.3431 1 9 2.34315 9 4V12C9 13.6569 10.3431 15 12 15C13.6569 15 15 13.6569 15 12V4C15 2.34315 13.6569 1 12 1Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              <path d="M19 10V12C19 15.866 15.866 19 12 19M12 19C8.13401 19 5 15.866 5 12V10M12 19V23M8 23H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Voice {voiceEnabled ? 'On' : 'Off'}
-          </button>
-        </div>
-      </div>
-
-      <div className="chat-window" ref={chatWindowRef}>
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`message ${message.sender === 'Buddy' ? 'message-ai' : 'message-user'}`}
-          >
-            <span className="message-sender">
-              {message.sender === 'Buddy' ? '🤖 Buddy' : '👤 You'}
-            </span>
-            <p>{message.content}</p>
-          </div>
-        ))}
-        {isTyping && (
-          <div className="message message-ai">
-            <span className="message-sender">🤖 Buddy</span>
-            <div className="typing-dots">
-              <span /><span /><span />
-            </div>
-          </div>
-        )}
-      </div>
-
-      <form className="chat-form" onSubmit={handleSubmit}>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ask about policies, documents, payroll…"
-        />
-        <button
-          type="button"
-          className={`mic-btn ${isListening ? 'mic-btn--active' : ''}`}
-          onClick={startListening}
-          title={isListening ? 'Stop listening' : 'Speak your question'}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path d="M12 1C10.3431 1 9 2.34315 9 4V12C9 13.6569 10.3431 15 12 15C13.6569 15 15 13.6569 15 12V4C15 2.34315 13.6569 1 12 1Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            <path d="M19 10V12C19 15.866 15.866 19 12 19M12 19C8.13401 19 5 15.866 5 12V10M12 19V23M8 23H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+        <button type="button" className="chat-clear-btn" onClick={handleClearHistory}>
+          Clear chat
         </button>
-        <button type="submit">Send</button>
-      </form>
+      </div>
+
+      <div className="chat-card-body">
+        <div className="chat-window" ref={chatWindowRef}>
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className={`message ${message.sender === ASSISTANT_NAME ? 'message-ai' : 'message-user'}`}
+            >
+              <span className="message-sender">
+                {message.sender === ASSISTANT_NAME ? `🤖 ${ASSISTANT_NAME}` : '👤 You'}
+              </span>
+              <p>{message.content}</p>
+            </div>
+          ))}
+          {isTyping && (
+            <div className="message message-ai">
+              <span className="message-sender">🤖 {ASSISTANT_NAME}</span>
+              <div className="typing-dots">
+                <span /><span /><span />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <form className="chat-form" onSubmit={handleSubmit}>
+          <textarea
+            value={query}
+            disabled={uploadEnabled || awaitingVerification}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                handleSubmit(e)
+              }
+            }}
+            placeholder={uploadEnabled || awaitingVerification ? 'Upload in progress. Waiting for verification...' : 'Ask about policies, documents, payroll…'}
+            rows={3}
+          />
+          <div className="chat-form-actions">
+            {!uploadEnabled && !awaitingVerification && (
+              <>
+                <button
+                  type="button"
+                  className={`voice-input-toggle ${isListening ? 'voice-input-toggle--active' : ''}`}
+                  onClick={startListening}
+                  title={isListening ? 'Stop listening' : 'Speak your question'}
+                >
+                  {isListening ? 'Stop' : 'Voice On'}
+                </button>
+                <button type="submit">Send</button>
+              </>
+            )}
+            {uploadEnabled && (
+              <>
+                <button type="button" onClick={handleUploadClick}>
+                  {currentTarget === 'passport'
+                    ? 'Upload Passport'
+                    : currentTarget === 'address'
+                      ? 'Upload Address Proof'
+                      : currentTarget === 'certification'
+                        ? 'Upload Certificates'
+                      : 'Upload Documents'}
+                </button>
+                <input
+                  ref={uploadInputRef}
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  style={{ display: 'none' }}
+                  onChange={handleUploadChange}
+                />
+              </>
+            )}
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

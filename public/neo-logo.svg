@@ -1,0 +1,18 @@
+<svg width="360" height="96" viewBox="0 0 360 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="neoGradient" x1="12" y1="8" x2="84" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#FF6B35"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="6" y="8" width="84" height="84" rx="24" fill="#0B2445" stroke="url(#neoGradient)" stroke-width="3"/>
+  <path d="M24 65V33L49 58V33" stroke="url(#neoGradient)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="67" cy="48" r="8" fill="#38BDF8"/>
+  <path d="M53 48H67" stroke="#FF6B35" stroke-width="4" stroke-linecap="round"/>
+
+  <text x="106" y="52" fill="#0B2445" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="42" font-weight="900">N</text>
+  <text x="138" y="52" fill="#0369A1" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="42" font-weight="900">E</text>
+  <text x="167" y="52" fill="#EA580C" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="42" font-weight="900">O</text>
+  <text x="108" y="74" fill="#475569" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" letter-spacing="1">NEW EMPLOYEE ONBOARDING</text>
+</svg>

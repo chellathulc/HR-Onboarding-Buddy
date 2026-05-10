@@ -49,7 +49,7 @@ img {
 }
 
 ::selection {
-  background: linear-gradient(135deg, #ff6b35 0%, #0072b8 100%);
+  background: #ff6b35;
   color: #fff;
 }
 
