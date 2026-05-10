@@ -49,6 +49,15 @@ const CERTIFICATION_FILE_NAME_PATTERN = /(certificate|cert|degree|college|univer
 const ASSISTANT_NAME = 'Neo'
 const CHAT_HISTORY_STORAGE_KEY = 'neo-chat-history-v1'
 
+const SUGGESTION_CHIPS = [
+  { label: '📋 Leave policy', query: 'What is the leave policy?' },
+  { label: '💰 Payroll dates', query: 'When is payroll processed?' },
+  { label: '🏥 Health benefits', query: 'What health benefits do I get?' },
+  { label: '🏠 Remote work', query: 'Can I work remotely?' },
+  { label: '📄 ID proof help', query: 'Help me with ID proof upload' },
+  { label: '📚 Training', query: 'What training do I need to complete?' },
+]
+
 const ChatAssistant = ({
   userName,
   verificationEvent,
@@ -87,6 +96,7 @@ const ChatAssistant = ({
   const [awaitingVerification, setAwaitingVerification] = useState(false)
   const [lastVerificationId, setLastVerificationId] = useState(null)
   const [lastRemovalId, setLastRemovalId] = useState(null)
+  const [feedback, setFeedback] = useState({})
   const chatWindowRef = useRef(null)
   const recognitionRef = useRef(null)
   const uploadInputRef = useRef(null)
@@ -302,7 +312,26 @@ const ChatAssistant = ({
 
   const handleClearHistory = () => {
     setMessages(initialMessages)
+    setFeedback({})
     window.localStorage.removeItem(CHAT_HISTORY_STORAGE_KEY)
+  }
+
+  const handleChipClick = (chipQuery) => {
+    const userMessage = { id: Date.now(), sender: 'You', content: chipQuery }
+    setMessages((prev) => [...prev, userMessage])
+    setIsTyping(true)
+    window.setTimeout(() => {
+      const reply = getReply(chipQuery)
+      setMessages((prev) => [
+        ...prev,
+        { id: Date.now() + 1, sender: ASSISTANT_NAME, content: reply },
+      ])
+      setIsTyping(false)
+    }, 700)
+  }
+
+  const handleFeedback = (messageId, value) => {
+    setFeedback((prev) => ({ ...prev, [messageId]: value }))
   }
 
   return (
@@ -328,6 +357,30 @@ const ChatAssistant = ({
                 {message.sender === ASSISTANT_NAME ? `🤖 ${ASSISTANT_NAME}` : '👤 You'}
               </span>
               <p>{message.content}</p>
+              {message.sender === ASSISTANT_NAME && message.id !== 1 && (
+                <div className="message-feedback">
+                  <span className="message-feedback-label">Was this helpful?</span>
+                  <button
+                    type="button"
+                    className={`feedback-btn ${feedback[message.id] === 'up' ? 'feedback-btn--active-up' : ''}`}
+                    onClick={() => handleFeedback(message.id, 'up')}
+                    aria-label="Helpful"
+                    title="Helpful"
+                  >👍</button>
+                  <button
+                    type="button"
+                    className={`feedback-btn ${feedback[message.id] === 'down' ? 'feedback-btn--active-down' : ''}`}
+                    onClick={() => handleFeedback(message.id, 'down')}
+                    aria-label="Not helpful"
+                    title="Not helpful"
+                  >👎</button>
+                  {feedback[message.id] && (
+                    <span className="feedback-thanks">
+                      {feedback[message.id] === 'up' ? 'Thanks for the feedback!' : 'Thanks, we\'ll improve!'}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           ))}
           {isTyping && (
@@ -335,6 +388,23 @@ const ChatAssistant = ({
               <span className="message-sender">🤖 {ASSISTANT_NAME}</span>
               <div className="typing-dots">
                 <span /><span /><span />
+              </div>
+            </div>
+          )}
+          {messages.length === 1 && !isTyping && !uploadEnabled && !awaitingVerification && (
+            <div className="chat-chips">
+              <p className="chat-chips-label">Quick questions</p>
+              <div className="chat-chips-row">
+                {SUGGESTION_CHIPS.map((chip) => (
+                  <button
+                    key={chip.label}
+                    type="button"
+                    className="chat-chip"
+                    onClick={() => handleChipClick(chip.query)}
+                  >
+                    {chip.label}
+                  </button>
+                ))}
               </div>
             </div>
           )}

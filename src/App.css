@@ -1015,6 +1015,94 @@
   letter-spacing: 0.04em;
 }
 
+/* ===== CHAT CHIPS ===== */
+.chat-chips {
+  margin-top: auto;
+  padding-top: 0.8rem;
+}
+
+.chat-chips-label {
+  margin: 0 0 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.chat-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chat-chip {
+  border: 1px solid rgba(255, 107, 53, 0.3);
+  background: rgba(255, 107, 53, 0.06);
+  color: #fbb07a;
+  border-radius: 999px;
+  padding: 0.38rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 160ms ease;
+  white-space: nowrap;
+}
+
+.chat-chip:hover {
+  background: rgba(255, 107, 53, 0.15);
+  border-color: rgba(255, 107, 53, 0.6);
+  color: #ffd0a8;
+  transform: translateY(-1px);
+}
+
+/* ===== MESSAGE FEEDBACK ===== */
+.message-feedback {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.message-feedback-label {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.feedback-btn {
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.3);
+  border-radius: 8px;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 140ms ease;
+  line-height: 1;
+}
+
+.feedback-btn:hover {
+  border-color: rgba(148, 163, 184, 0.5);
+  background: rgba(30, 41, 59, 0.5);
+  transform: scale(1.1);
+}
+
+.feedback-btn--active-up {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.feedback-btn--active-down {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.feedback-thanks {
+  font-size: 0.73rem;
+  color: #86efac;
+  font-style: italic;
+}
+
 /* ===== CHAT IMPROVEMENTS ===== */
 .chat-controls {
   display: flex;
